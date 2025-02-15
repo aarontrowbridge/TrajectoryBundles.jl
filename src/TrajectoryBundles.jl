@@ -194,35 +194,36 @@ end
 function step!(bundle::TrajectoryBundle;
     σ = 0.1,
     ρ = 1.0e5,
-    silent_solve = false
+    silent_solve = false,
+    slacks = true
 )
     evolve!(bundle; σ = σ)
 
     α = Variable(bundle.M, bundle.N, Positive())
-    s = Variable(bundle.Z̄.dims.x, bundle.N - 1)
-    ws = [Variable(size(Wcₖ, 1)) for Wcₖ in bundle.Wcs]
+
+    if slacks
+        s = Variable(bundle.Z̄.dims.x, bundle.N - 1)
+        ws = [Variable(size(Wcₖ, 1)) for Wcₖ in bundle.Wcs]
+    end
 
     obj = sum(sumsquares(bundle.Wrs[k] * α[:, k]) for k = 1:bundle.N-1) +
         sumsquares(bundle.Wrs[bundle.N] * α[:, bundle.N]) +
-        ρ * (
+        (slacks ? ρ * (
             norm(s, 1) +
             sum(norm(w, 1) for w ∈ ws)
-        )
+        ) : 0.0)
 
-    constraints = [
-        [
-            bundle.Wxs[k + 1] * α[:, k + 1] == bundle.Wfs[k] * α[:, k] + s[:, k]
-                for k = 1:bundle.N-1
-        ];
-        [
-            bundle.Wcs[k] * α[:, k] + ws[k] >= 0
-                for k = 1:bundle.N
-        ];
-        [
-            sum(α[:, k]) == 1
-                for k = 1:bundle.N
-        ];
-    ]
+    constraints = Constraint[sum(α[:, k]) == 1 for k = 1:bundle.N]
+
+    for k = 1:bundle.N-1
+        push!(constraints,
+            bundle.Wxs[k + 1] * α[:, k + 1] - bundle.Wfs[k] * α[:, k] ==
+                (slacks ? s[:, k] : 0.0)
+        )
+        push!(constraints,
+            bundle.Wcs[k] * α[:, k] >= (slacks ? ws[k] : 0.0)
+        )
+    end
 
     prob = minimize(obj, constraints)
 
@@ -279,13 +280,27 @@ function solve!(prob::TrajectoryBundleProblem;
     σ_min = 0.0,
     ρ = 1.0e6,
     silent_solve = true,
+    slack_tol = 1.0e-4,
     max_iter = 100
 )
+    J⁰ = eval_objective(prob.bundle)
+    push!(prob.Js, J⁰)
+
     for i = 1:max_iter
+
         σ = prob.σ_scheduler(σ₀, σ_min, i, max_iter)
-        step!(prob.bundle; σ = σ, ρ = ρ, silent_solve = silent_solve)
+
+        step!(prob.bundle;
+            σ = σ,
+            ρ = ρ,
+            silent_solve = silent_solve,
+            slacks = J⁰ > slack_tol
+        )
+
         Jⁱ = eval_objective(prob.bundle)
+
         push!(prob.Js, Jⁱ)
+
         println("Iteration $i: J = $Jⁱ, σ = $σ")
     end
 

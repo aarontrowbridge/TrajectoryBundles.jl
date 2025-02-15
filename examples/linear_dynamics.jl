@@ -3,16 +3,13 @@ using NamedTrajectories
 using TrajectoryIndexingUtils
 using TrajectoryBundles
 using OrdinaryDiffEq
-using DiffEqGPU
 using LinearAlgebra
-using StaticArrays
+using SparseArrays
 using CairoMakie
 using Plots
-using CUDA
 using Convex
 using Clarabel
 using PiccoloQuantumObjects
-using SparseArrays
 import PiccoloQuantumObjects as PQO
 
 X = PQO.Isomorphisms.G(PAULIS.X)
@@ -23,25 +20,26 @@ X = sparse(X)
 Y = sparse(Y)
 Z = sparse(Z)
 
-G(u) = Z + X * u[1] + Y * u[2]
+ω = 1.0e1
+
+G(u) = ω * Z + X * u[1] + Y * u[2]
 
 function f(x, u, t)
-    ω = 1.0e2
     return G(u) * cos(ω * t) * x
 end
 
 x_init = [1.0, 0.0, 0.0, 0.0]
 x_goal = [0.0, 1.0, 0.0, 0.0]
 
-N = 50
+N = 100
 M = 2 * (4 + 2) + 1
-Δt = 0.1
-
-u_initial = 2rand(2, N) .- 1
-
-x_initial = stack([prod(exp(Matrix(G(u) * Δt)) for u ∈ eachcol(u_initial[:, 1:k])) * x_init for k = 1:N])
+Δt = 0.01
 
 u_bound = 0.02
+
+u_initial = u_bound * (2rand(2, N) .- 1)
+
+x_initial = stack([prod(exp(Matrix(G(u) * Δt)) for u ∈ eachcol(u_initial[:, 1:k])) * x_init for k = 1:N])
 
 traj = NamedTrajectory((
     # iterpolate between x_init and x_goal
@@ -67,7 +65,6 @@ traj = NamedTrajectory((
 
 NamedTrajectories.plot(traj)
 
-
 r_term = x -> 100.0 * (x - traj.goal.x)
 
 rs = Function[(x, u) -> [1e-3 * u;] for k = 1:N-1]
@@ -87,7 +84,7 @@ bundle = TrajectoryBundle(traj, M, f, r_term, rs, cs)
 
 prob = TrajectoryBundleProblem(bundle;
     # σ_scheduler = (args...) -> exponential_decay(args...; γ=0.9)
-    σ_scheduler = linear_scheduler
+    σ_scheduler = cosine_annealing
 )
 
 TrajectoryBundles.solve!(prob;
@@ -99,6 +96,15 @@ TrajectoryBundles.solve!(prob;
 
 NamedTrajectories.plot(prob.bundle.Z̄)
 
-prob.bundle.Z̄[1].x
+prob.bundle.Wcs[31]
 
-NamedTrajectories.plot(traj)
+
+
+for k = 1:bundle.N
+    println(cs[k](bundle.Z̄[k].x, bundle.Z̄[k].u))
+end
+
+
+for Wc ∈ prob.bundle.Wcs
+    println(Wc)
+end
