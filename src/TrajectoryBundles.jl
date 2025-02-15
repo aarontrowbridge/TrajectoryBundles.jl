@@ -4,6 +4,8 @@ export TrajectoryBundle
 export TrajectoryBundleProblem
 export evolve!
 export step!
+export rollout
+export rollout!
 
 export linear_scheduler
 export cosine_annealing
@@ -49,7 +51,7 @@ mutable struct TrajectoryBundle
         Wcs = Vector{Matrix{Float64}}(undef, N)
 
         new(
-            Z̄,
+            copy(Z̄),
             N,
             M,
             f,
@@ -281,6 +283,52 @@ end
 #     )
 # end
 
+function rollout(
+    x_init::AbstractVector,
+    u_traj::AbstractMatrix,
+    f::Function,
+    Δt::Float64,
+    N::Int;
+    alg = Tsit5(),
+    return_full_solution = false
+)
+    f_full = (x, us, t) -> begin
+        k = Int(t ÷ Δt) + 1
+        uₖ = us[:, k]
+        return f(x, uₖ, t)
+    end
+
+    prob_rollout = ODEProblem(
+        f_full,
+        x_init,
+        (0.0, Δt * (N - 1)),
+        u_traj
+    )
+
+    sol = solve(prob_rollout, alg, saveat = Δt)
+
+    if return_full_solution
+        return sol
+    else
+        return stack(sol.u)
+    end
+end
+
+function rollout(bundle::TrajectoryBundle)
+    return rollout(
+        bundle.Z̄.initial.x,
+        bundle.Z̄.u,
+        bundle.f,
+        bundle.Z̄.timestep,
+        bundle.N
+    )
+end
+
+function rollout!(bundle::TrajectoryBundle)
+    bundle.Z̄.x = rollout(bundle)
+    return nothing
+end
+
 function solve!(prob::TrajectoryBundleProblem;
     σ₀ = 0.1,
     σ_min = 0.0,
@@ -288,7 +336,8 @@ function solve!(prob::TrajectoryBundleProblem;
     silent_solve = true,
     slack_tol = 1.0e-4,
     normalize_states = true,
-    max_iter = 100
+    max_iter = 100,
+    manifold_projection = true
 )
     J⁰ = eval_objective(prob.bundle)
     prob.Js = Float64[J⁰]
@@ -303,9 +352,13 @@ function solve!(prob::TrajectoryBundleProblem;
             σ = σ,
             ρ = ρ,
             silent_solve = silent_solve,
-            slacks = prob.Js[end] > slack_tol,
+            slacks = i > 1 ? prob.Js[end] > slack_tol : true,
             normalize_states = normalize_states
         )
+
+        if manifold_projection
+            rollout!(prob.bundle)
+        end
 
         Jⁱ = eval_objective(prob.bundle)
 

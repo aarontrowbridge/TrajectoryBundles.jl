@@ -9,12 +9,11 @@ using CairoMakie
 using Plots
 using Convex
 using Clarabel
-using PiccoloQuantumObjects
 import PiccoloQuantumObjects as PQO
 
-X = PQO.Isomorphisms.G(PAULIS.X)
-Y = PQO.Isomorphisms.G(PAULIS.Y)
-Z = PQO.Isomorphisms.G(PAULIS.Z)
+X = PQO.Isomorphisms.G(PQO.PAULIS.X)
+Y = PQO.Isomorphisms.G(PQO.PAULIS.Y)
+Z = PQO.Isomorphisms.G(PQO.PAULIS.Z)
 
 X = sparse(X)
 Y = sparse(Y)
@@ -26,7 +25,6 @@ G(u) = ω * Z + X * u[1] + Y * u[2]
 
 function f(x, u, t)
     return G(u) * cos(ω * t) * x
-    # return G(u) * x
 end
 
 x_init = [1.0, 0.0, 0.0, 0.0]
@@ -37,24 +35,13 @@ M = 2 * (4 + 2) + 1
 # M = 8
 Δt = 0.05
 
-function f_full(x, us, t)
-    k = Int(t ÷ Δt) + 1
-    uₖ = us[:, k]
-    return f(x, uₖ, t)
-end
-
-u_bound = 2.0
+u_bound = 1.0
 
 u_initial = u_bound * (2rand(2, N) .- 1)
 
-prob_rollout = ODEProblem(f_full, x_init, (0.0, Δt * (N - 1)), u_initial)
-
-sol = solve(prob_rollout, Tsit5(), saveat = Δt)
-
-x_initial = stack(sol.u)
+x_initial = rollout(x_init, u_initial, f, Δt, N)
 
 traj = NamedTrajectory((
-    # iterpolate between x_init and x_goal
         x = x_initial,
         u = u_initial
     );
@@ -102,13 +89,20 @@ prob = TrajectoryBundleProblem(bundle;
 
 TrajectoryBundles.solve!(prob;
     max_iter = 200,
-    σ₀ = 1.0,
+    σ₀ = 0.1,
     ρ = 1.0e6,
-    slack_tol=1.0e-8,
+    slack_tol = 1.0e1,
     silent_solve = true,
-    normalize_states = false
+    normalize_states = false,
+    manifold_projection = false
 )
 
 NamedTrajectories.plot(prob.bundle.Z̄)
 
 lines(log.(prob.Js[2:end]))
+
+rollout(bundle)[:, end]
+
+bundle.Z̄.x[:, end]
+
+rollout!(bundle)
