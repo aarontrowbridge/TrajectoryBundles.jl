@@ -26,6 +26,7 @@ G(u) = ω * Z + X * u[1] + Y * u[2]
 
 function f(x, u, t)
     return G(u) * cos(ω * t) * x
+    # return G(u) * x
 end
 
 x_init = [1.0, 0.0, 0.0, 0.0]
@@ -33,13 +34,24 @@ x_goal = [0.0, 1.0, 0.0, 0.0]
 
 N = 100
 M = 2 * (4 + 2) + 1
-Δt = 0.01
+# M = 8
+Δt = 0.05
 
-u_bound = 0.02
+function f_full(x, us, t)
+    k = Int(t ÷ Δt) + 1
+    uₖ = us[:, k]
+    return f(x, uₖ, t)
+end
+
+u_bound = 2.0
 
 u_initial = u_bound * (2rand(2, N) .- 1)
 
-x_initial = stack([prod(exp(Matrix(G(u) * Δt)) for u ∈ eachcol(u_initial[:, 1:k])) * x_init for k = 1:N])
+prob_rollout = ODEProblem(f_full, x_init, (0.0, Δt * (N - 1)), u_initial)
+
+sol = solve(prob_rollout, Tsit5(), saveat = Δt)
+
+x_initial = stack(sol.u)
 
 traj = NamedTrajectory((
     # iterpolate between x_init and x_goal
@@ -67,7 +79,7 @@ NamedTrajectories.plot(traj)
 
 r_term = x -> 100.0 * (x - traj.goal.x)
 
-rs = Function[(x, u) -> [1e-3 * u;] for k = 1:N-1]
+rs = Function[(x, u) -> [2e-1 * u;] for k = 1:N-1]
 
 cs = Function[(x, u) -> [u - traj.bounds.u[1]; traj.bounds.u[2] - u] for k = 1:N]
 
@@ -85,26 +97,18 @@ bundle = TrajectoryBundle(traj, M, f, r_term, rs, cs)
 prob = TrajectoryBundleProblem(bundle;
     # σ_scheduler = (args...) -> exponential_decay(args...; γ=0.9)
     σ_scheduler = cosine_annealing
+    # σ_scheduler = linear_scheduler
 )
 
 TrajectoryBundles.solve!(prob;
-    max_iter = 100,
-    σ₀ = 0.1,
-    ρ = 1.0e7,
-    silent_solve = true
+    max_iter = 200,
+    σ₀ = 1.0,
+    ρ = 1.0e6,
+    slack_tol=1.0e-8,
+    silent_solve = true,
+    normalize_states = false
 )
 
 NamedTrajectories.plot(prob.bundle.Z̄)
 
-prob.bundle.Wcs[31]
-
-
-
-for k = 1:bundle.N
-    println(cs[k](bundle.Z̄[k].x, bundle.Z̄[k].u))
-end
-
-
-for Wc ∈ prob.bundle.Wcs
-    println(Wc)
-end
+lines(log.(prob.Js[2:end]))

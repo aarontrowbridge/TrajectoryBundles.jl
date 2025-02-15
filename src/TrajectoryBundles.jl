@@ -129,6 +129,7 @@ end
 
 function evolve!(
     bundle::TrajectoryBundle;
+    normalize_states = true,
     σ = 0.1
 )
     prob = ODEProblem(
@@ -140,9 +141,13 @@ function evolve!(
 
     prob_func = (prob, j, repeat) -> begin
         k = (j - 1) ÷ bundle.M + 1
-        x = get_sample(bundle.Z̄[k].x; σ = σ, normalize = true)
+        x = get_sample(bundle.Z̄[k].x; σ = σ, normalize = normalize_states)
         u = get_sample(bundle.Z̄[k].u; σ = σ)
-        remake(prob, u0 = x, p = u)
+        remake(prob,
+            u0 = x,
+            p = u,
+            tspan = ((k - 1) * bundle.Z̄.timestep, k * bundle.Z̄.timestep)
+        )
     end
 
     prob_ensemble = EnsembleProblem(
@@ -175,7 +180,7 @@ function NamedTrajectories.update!(
     X_new = similar(bundle.Z̄.x)
     X_new[:, 1] = bundle.Z̄.initial.x
     for k = 2:bundle.N
-        X_new[:, k] = bundle.Wxs[k] * α[:, k]
+        X_new[:, k] = bundle.Wfs[k - 1] * α[:, k - 1]
     end
 
     U_new = similar(bundle.Z̄.u)
@@ -195,9 +200,10 @@ function step!(bundle::TrajectoryBundle;
     σ = 0.1,
     ρ = 1.0e5,
     silent_solve = false,
-    slacks = true
+    slacks = true,
+    normalize_states = true
 )
-    evolve!(bundle; σ = σ)
+    evolve!(bundle; σ = σ, normalize_states = normalize_states)
 
     α = Variable(bundle.M, bundle.N, Positive())
 
@@ -245,7 +251,7 @@ function cosine_annealing(σ₀, σ_min, i, max_iter)
     return σ_min + 0.5 * (σ₀ - σ_min) * (1 + cos(i * π / max_iter))
 end
 
-exponential_decay(σ₀, σ_min, i, max_iter; γ=0.9) = σ₀ * γ^i
+exponential_decay(σ₀, σ_min, i, max_iter; γ=0.9, T=5) = σ₀ * γ^(i / T)
 
 mutable struct TrajectoryBundleProblem
     bundle::TrajectoryBundle
@@ -281,10 +287,13 @@ function solve!(prob::TrajectoryBundleProblem;
     ρ = 1.0e6,
     silent_solve = true,
     slack_tol = 1.0e-4,
+    normalize_states = true,
     max_iter = 100
 )
     J⁰ = eval_objective(prob.bundle)
-    push!(prob.Js, J⁰)
+    prob.Js = Float64[J⁰]
+
+    println("Iteration 0: J = $J⁰, σ = $σ₀")
 
     for i = 1:max_iter
 
@@ -294,7 +303,8 @@ function solve!(prob::TrajectoryBundleProblem;
             σ = σ,
             ρ = ρ,
             silent_solve = silent_solve,
-            slacks = J⁰ > slack_tol
+            slacks = prob.Js[end] > slack_tol,
+            normalize_states = normalize_states
         )
 
         Jⁱ = eval_objective(prob.bundle)
