@@ -3,7 +3,33 @@ uuid = "6356fb03-8c35-4dfb-8dca-145006c345e7"
 authors = ["Aaron Trowbridge"]
 version = "1.0.0-DEV"
 
+[deps]
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+Clarabel = "61c947e1-3e6d-4ee4-985a-eec8c727bd6e"
+Convex = "f65535da-76fb-5f13-bab9-19810c17039a"
+DiffEqGPU = "071ae1c0-96b5-11e9-1965-c90190d839ea"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+NamedTrajectories = "538bc3a1-5ab9-4fc3-b776-35ca1e893e08"
+OSQP = "ab2f91bb-94b4-55e3-9ba0-7f65df51de79"
+OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+TrajectoryIndexingUtils = "6dad8b7f-dd9a-4c28-9b70-85b9a079bfc8"
+
 [compat]
+CUDA = "5.6.1"
+CairoMakie = "0.13.1"
+Clarabel = "0.7.1"
+Convex = "0.16.4"
+DiffEqGPU = "3.4.1"
+LinearAlgebra = "1.11.0"
+NamedTrajectories = "0.2.6"
+OSQP = "0.8.1"
+OrdinaryDiffEq = "6.91.0"
+Plots = "1.40.9"
+Revise = "3.7.2"
+TrajectoryIndexingUtils = "0.1.0"
 julia = "1.6.7"
 
 [extras]
