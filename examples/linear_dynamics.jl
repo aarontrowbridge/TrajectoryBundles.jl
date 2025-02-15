@@ -23,26 +23,35 @@ X = sparse(X)
 Y = sparse(Y)
 Z = sparse(Z)
 
+G(u) = Z + X * u[1] + Y * u[2]
+
+function f(x, u, t)
+    ω = 1.0e2
+    return G(u) * cos(ω * t) * x
+end
+
 x_init = [1.0, 0.0, 0.0, 0.0]
 x_goal = [0.0, 1.0, 0.0, 0.0]
 
 N = 50
-M = 10
-Δt = 1.0
+M = 2 * (4 + 2) + 1
+Δt = 0.1
 
 u_initial = 2rand(2, N) .- 1
 
 x_initial = stack([prod(exp(Matrix(G(u) * Δt)) for u ∈ eachcol(u_initial[:, 1:k])) * x_init for k = 1:N])
 
+u_bound = 0.02
+
 traj = NamedTrajectory((
     # iterpolate between x_init and x_goal
         x = x_initial,
-        u = u_initial 
+        u = u_initial
     );
     controls = (:u,),
     timestep = Δt,
     bounds = (
-        u = ([-1.0, -1.0], [1.0, 1.0]),
+        u = u_bound,
     ),
     initial = (
         x = x_init,
@@ -58,18 +67,10 @@ traj = NamedTrajectory((
 
 NamedTrajectories.plot(traj)
 
-G(a) = X * a[1] + Y * a[2]
-
-function f(x, p, t)
-    return G(p) * x
-end
-
-traj.u
-
 
 r_term = x -> 100.0 * (x - traj.goal.x)
 
-rs = Function[(x, u) -> [1e-2 * u;] for k = 1:N-1]
+rs = Function[(x, u) -> [1e-3 * u;] for k = 1:N-1]
 
 cs = Function[(x, u) -> [u - traj.bounds.u[1]; traj.bounds.u[2] - u] for k = 1:N]
 
@@ -90,10 +91,10 @@ prob = TrajectoryBundleProblem(bundle;
 )
 
 TrajectoryBundles.solve!(prob;
-    max_iter = 10,
-    σ₀ = 0.0001,
+    max_iter = 100,
+    σ₀ = 0.1,
     ρ = 1.0e7,
-    silent_solve = false
+    silent_solve = true
 )
 
 NamedTrajectories.plot(prob.bundle.Z̄)

@@ -139,7 +139,7 @@ function evolve!(
     )
 
     prob_func = (prob, j, repeat) -> begin
-        k = j ÷ bundle.M + 1
+        k = (j - 1) ÷ bundle.M + 1
         x = get_sample(bundle.Z̄[k].x; σ = σ, normalize = true)
         u = get_sample(bundle.Z̄[k].u; σ = σ)
         remake(prob, u0 = x, p = u)
@@ -228,13 +228,12 @@ function step!(bundle::TrajectoryBundle;
 
     Convex.solve!(prob, Clarabel.Optimizer; silent=silent_solve)
 
-    if prob.status != "solved"
-        display(prob.status)
-        println("Optimization failed with status: $(prob.status)")
-        return nothing
-    else
-        update!(bundle, α.value)
-    end
+    # if prob.status !=
+    #     @info "Optimization failed with status: $(prob.status)" prob.status
+    #     println("Optimization failed with status: $(prob.status)")
+    #     return nothing
+    # else
+    update!(bundle, α.value)
 
     return nothing
 end
