@@ -1,6 +1,6 @@
 # TrajectoryBundles
 
-[![Build Status](https://github.com/aarontrowbridge/TrajectoryBundles.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/aarontrowbridge/TrajectoryBundles.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build Status](https://github.com/aarontrowbridge/TrajectoryBundles.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/aarontrowbridge/TrajectoryBundles.jl/actions/workflows/CI.yml?query=branch%4Amain)
 
 ## Description
 
@@ -30,15 +30,28 @@ Here is a basic example of how to use TrajectoryBundles:
 using TrajectoryBundles
 using NamedTrajectories
 using OrdinaryDiffEq
-using LinearAlgebra
+using LinearAlgebra 
+import PiccoloQuantumObjects as PQO
+
+# Define Pauli matrices
+X = PQO.Isomorphisms.G(PAULIS.X)
+Y = PQO.Isomorphisms.G(PAULIS.Y)
+Z = PQO.Isomorphisms.G(PAULIS.Z)
 
 # Define initial and goal states
 x_init = [1.0, 0.0, 0.0, 0.0]
 x_goal = [0.0, 1.0, 0.0, 0.0]
 
 # Define control inputs
-N = 50
+N = 50  # Number of time steps
+M = 10  # Number of bundle samples per knot point 
+Δt = 1.0  # Time step duration
+
+# Define random controls
 u_initial = 2rand(2, N) .- 1
+
+# Build initial trajectory
+x_initial = stack([prod(exp(Matrix(G(u) * Δt)) for u ∈ eachcol(u_initial[:, 1:k])) * x_init for k = 1:N])
 
 # Create a named trajectory
 traj = NamedTrajectory((
@@ -46,7 +59,7 @@ traj = NamedTrajectory((
     u = u_initial 
     );
     controls = (:u,),
-    timestep = 1.0,
+    timestep = Δt,
     bounds = (
         u = ([-1.0, -1.0], [1.0, 1.0]),
     ),
@@ -63,18 +76,41 @@ traj = NamedTrajectory((
 )
 
 # Define dynamics function
-G(a) = X * a[1] + Y * a[2]
-function f(x, p, t)
-    return G(p) * x
+G(u) = X * u[1] + Y * u[2]
+
+function f(x, u, t)
+    return G(u) * x
 end
 
+# Define reward term
+r_term = x -> 100.0 * (x - traj.goal.x)
+
+# Define running costs
+rs = Function[(x, u) -> [1e-3 * u;] for k = 1:N-1]
+
+# Define constraints
+cs = Function[(x, u) -> [u - traj.bounds.u[1]; traj.bounds.u[2] - u] for k = 1:N]
+
+# Initial constraints
+cs[1] = (x, u) -> [
+    x - traj.initial.x;
+    traj.initial.x - x;
+    u - traj.initial.u;
+    traj.initial.u - u;
+]
+
+# Final constraints
+cs[end] = (x, u) -> [u - traj.final.u; traj.final.u - u]
+
 # Create and solve trajectory bundle problem
-bundle = TrajectoryBundle(traj, 10, f, x -> 100.0 * (x - traj.goal.x), rs, cs)
+bundle = TrajectoryBundle(traj, M, f, r_term, rs, cs)
 prob = TrajectoryBundleProblem(bundle)
-TrajectoryBundles.solve!(prob)
+
+TrajectoryBundles.solve!(prob; max_iter=100)
 
 # Plot results
 NamedTrajectories.plot(prob.bundle.Z̄)
 ```
 
 For more detailed usage and examples, please refer to the documentation.
+
