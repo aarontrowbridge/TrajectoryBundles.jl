@@ -18,13 +18,13 @@ To install TrajectoryBundles.jl, enter package mode in the Julia REPL:
 
 ```
 $ julia --project
+julia> ]
 ```
 
 and run the following command:
 
 ```julia
-julia> ]
-pkg> add https://github.com/aarontrowbridge/TrajectoryBundles.jl.git 
+(mydir) pkg> add https://github.com/aarontrowbridge/TrajectoryBundles.jl.git 
 ```
 
 ## Usage
