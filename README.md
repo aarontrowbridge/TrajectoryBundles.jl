@@ -195,3 +195,6 @@ NamedTrajectories.plot(prob.best_traj)
 
 ### Objective value
 ![](examples/plots/loss.png)
+
+### :warning: Note :warning:
+Due to stochasticity of algorithm, results may vary.

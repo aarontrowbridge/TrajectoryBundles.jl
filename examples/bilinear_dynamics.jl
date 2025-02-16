@@ -164,4 +164,4 @@ lines!(ax, 2:length(prob.Js), log.(prob.Js[2:end]), color = :blue, linewidth = 2
 fig
 
 # save log loss plot
-save(joinpath(pwd(), "TrajectoryBundles.jl/examples/plots/loss.png"), fig)
+# save(joinpath(pwd(), "TrajectoryBundles.jl/examples/plots/loss.png"), fig)
