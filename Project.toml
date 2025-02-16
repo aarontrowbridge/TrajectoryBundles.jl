@@ -1,7 +1,7 @@
 name = "TrajectoryBundles"
 uuid = "6356fb03-8c35-4dfb-8dca-145006c345e7"
 authors = ["Aaron Trowbridge"]
-version = "1.0.0-DEV"
+version = "0.0.1"
 
 [deps]
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
