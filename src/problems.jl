@@ -24,7 +24,7 @@ function cosine_annealing(σ₀, σ_min, i, max_iter)
     return σ_min + 0.5 * (σ₀ - σ_min) * (1 + cos(i * π / max_iter))
 end
 
-exponential_decay(σ₀, σ_min, i, max_iter; γ=0.9, T=5) = σ₀ * γ^(i / T)
+exponential_decay(σ₀, σ_min, i, max_iter; γ=0.9, T=5) = σ₀ * γ^(i * max_iter / T)
 
 mutable struct TrajectoryBundleProblem
     bundle::TrajectoryBundle
@@ -34,18 +34,18 @@ mutable struct TrajectoryBundleProblem
 
     function TrajectoryBundleProblem(
         bundle::TrajectoryBundle;
-        σ_scheduler = linear_scheduler
+        σ_scheduler::Function = linear_scheduler
     )
         new(bundle, σ_scheduler, Float64[], copy(bundle.Z̄))
     end
 
     function TrajectoryBundleProblem(
         Z_init::NamedTrajectory,
-        M::Int,
         f::Function,
         r_loss::Function,
         rs::Vector{Function},
         cs::Vector{Function};
+        M::Int = 2 * Z_init.dim + 1,
         kwargs...
     )
         bundle = TrajectoryBundle(Z_init, M, f, r_loss, rs, cs)
@@ -156,14 +156,14 @@ function step!(prob::TrajectoryBundleProblem;
 end
 
 function solve!(prob::TrajectoryBundleProblem;
-    σ₀ = 0.1,
+    max_iter = 100,
+    σ₀ = 1.0,
     σ_min = 0.0,
     ρ = 1.0e6,
+    slack_tol = 1.0e-1,
+    normalize_states = false,
+    feasibility_projection = false,
     silent_solve = true,
-    slack_tol = 1.0e-4,
-    normalize_states = true,
-    max_iter = 100,
-    manifold_projection = true
 )
     J⁰ = eval_objective(prob.bundle)
     prob.Js = Float64[J⁰]
@@ -182,7 +182,7 @@ function solve!(prob::TrajectoryBundleProblem;
             normalize_states = normalize_states
         )
 
-        if manifold_projection
+        if feasibility_projection
             rollout!(prob.bundle)
         end
 
@@ -196,6 +196,8 @@ function solve!(prob::TrajectoryBundleProblem;
 
         println("Iteration $i: J = $Jⁱ, σ = $σ")
     end
+
+    prob.bundle.Z̄ = copy(prob.best_traj)
 
     return nothing
 end

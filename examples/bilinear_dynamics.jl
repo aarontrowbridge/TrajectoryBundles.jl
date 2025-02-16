@@ -122,31 +122,21 @@ c_final = (x, u) -> [
 rs = Function[fill(r_reg, N-1)...]
 cs = Function[c_initial; fill(c_bound, N-2); c_final]
 
-# bundle = TrajectoryBundle(traj, M, f, r_loss, rs, cs)
-
-# define σ scheduler
-σ_scheduler = (args...) -> exponential_decay(args...; γ=0.9)
-# σ_scheduler = cosine_annealing
-# σ_scheduler = linear_scheduler
-
-# number of bundle samples at each knot point
-M = 2 * (traj.dim) + 1
-# M = 8
-
 # construct bundle problem
-prob = TrajectoryBundleProblem(traj, M, f, r_loss, rs, cs;
-    σ_scheduler = σ_scheduler
+prob = TrajectoryBundleProblem(traj, f, r_loss, rs, cs;
+    # M = 8,
+    σ_scheduler = cosine_annealing
 )
 
 # solve bundle problem
 TrajectoryBundles.solve!(prob;
-    max_iter = 200,
-    σ₀ = 1.0e0,
-    ρ = 1.0e6,
+    max_iter = 100,
+    σ₀ = 1.0e-0,
+    ρ = 1.0e5,
     slack_tol = 1.0e-1,
     silent_solve = true,
     normalize_states = false,
-    manifold_projection = false
+    feasibility_projection = false
 )
 
 # plot bundle solution
