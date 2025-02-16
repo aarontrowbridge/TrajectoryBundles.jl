@@ -8,10 +8,10 @@ The *[trajectory bundle method](https://kevintracy.info/ktracy_phd_robotics_2024
 
 $$
 \begin{align*}
-\underset{x, u}{\text{minimize}} \quad & Q \left\lVert r_N(x_N)\right\rVert^2 + \sum_{k=0}^{N-1} R \left\lVert r_k(x_k, u_k)\right\rVert^2 \\
+\underset{x, u}{\text{minimize}} \quad & Q \left\lVert r_N(x_N)\right\rVert^2 + \sum_{k=1}^{N-1} R \left\lVert r_k(x_k, u_k)\right\rVert^2 \\
 \text{subject to} \quad & x_{k+1} = f(x_k, u_k, \Delta t, t_k) \\
 & c_k(x_k, u_k) \geq 0 \\
-& x_0 = x_{\text{init}} \\
+& x_1 = x_{\text{init}} \\
 \end{align*}
 $$
 
