@@ -31,4 +31,4 @@ pkg> add https://github.com/aarontrowbridge/TrajectoryBundles.jl.git
 
 :construction: Interface is changing rapidly :construction:
 
-See the example script [/examples/linear_dynamis.jl](./examples/linear_dynamics.jl) for a the most up-to-date usage.
+See the example script [examples/linear_dynamis.jl](./examples/linear_dynamics.jl) for a the most up-to-date usage.
