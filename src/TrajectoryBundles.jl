@@ -325,13 +325,14 @@ function rollout(
     end
 end
 
-function rollout(bundle::TrajectoryBundle)
+function rollout(bundle::TrajectoryBundle; kwargs...)
     return rollout(
         bundle.Z̄.initial.x,
         bundle.Z̄.u,
         bundle.f,
         bundle.Z̄.timestep,
-        bundle.N
+        bundle.N;
+        kwargs...
     )
 end
 
