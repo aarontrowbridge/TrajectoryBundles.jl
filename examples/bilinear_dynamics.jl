@@ -91,7 +91,8 @@ traj = NamedTrajectory((
 )
 
 # plot initial trajectory
-NamedTrajectories.plot(joinpath(pwd(), "TrajectoryBundles.jl/examples/plots/initial.png"), traj)
+NamdTrajectories.plot(traj)
+# NamedTrajectories.plot(joinpath(pwd(), "TrajectoryBundles.jl/examples/plots/initial.png"), traj)
 
 # goal loss weight
 Q = 1.0e3
@@ -99,14 +100,14 @@ Q = 1.0e3
 # control regularization weight
 R = 1.0e-2
 
-# terminal loss
-r_loss = x -> √Q * norm(x - traj.goal.x)
+# terminal loss residual
+r_loss = x -> √Q * (x - traj.goal.x)
 
-# control regularization
-r_reg = (x, u) -> [√R * norm(u)]
+# control regularization residual
+r_reg = (x, u) -> √R * u
 
-# control bounds
-c_bound = (x, u) -> [norm(u); u_bound - norm(u)]
+# control bounds residual
+c_bound = (x, u) -> [u - traj.bounds.u[1]; traj.bounds.u[2] - u]
 
 # initial and final state constraints
 c_initial = (x, u) -> [
@@ -149,7 +150,7 @@ TrajectoryBundles.solve!(prob;
 NamedTrajectories.plot(prob.bundle.Z̄)
 
 # save
-NamedTrajectories.plot(joinpath(pwd(), "TrajectoryBundles.jl/examples/plots/final.png"), prob.bundle.Z̄)
+# NamedTrajectories.plot(joinpath(pwd(), "TrajectoryBundles.jl/examples/plots/final.png"), prob.bundle.Z̄)
 
 # plot loss
 lines(log.(prob.Js[2:end]))

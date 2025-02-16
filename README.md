@@ -18,13 +18,13 @@ To install TrajectoryBundles.jl, enter package mode in the Julia REPL:
 
 ```
 $ julia --project
-julia> ]
 ```
 
 and run the following command:
 
 ```julia
-(mydir) pkg> add https://github.com/aarontrowbridge/TrajectoryBundles.jl.git 
+julia> ]
+pkg> add https://github.com/aarontrowbridge/TrajectoryBundles.jl.git 
 ```
 
 ## Usage
@@ -141,14 +141,14 @@ Q = 1.0e3
 # control regularization weight
 R = 1.0e-2
 
-# terminal loss
-r_loss = x -> √Q * norm(x - traj.goal.x)
+# terminal loss residual
+r_loss = x -> √Q * (x - traj.goal.x)
 
-# control regularization
-r_reg = (x, u) -> [√R * norm(u)]
+# control regularization residual
+r_reg = (x, u) -> √R * u
 
-# control bounds
-c_bound = (x, u) -> [norm(u); u_bound - norm(u)]
+# control bounds residual
+c_bound = (x, u) -> [u - traj.bounds.u[1]; traj.bounds.u[2] - u]
 
 # initial and final state constraints
 c_initial = (x, u) -> [
