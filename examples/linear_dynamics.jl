@@ -21,10 +21,9 @@ Z = sparse(Z)
 
 ω = 1.0e1
 
-G(u) = ω * Z + X * u[1] + Y * u[2]
-
 function f(x, u, t)
-    return G(u) * cos(ω * t) * x
+    G = ω * Z + X * u[1] * cos(ω * t) + Y * u[2] * sin(ω * t)
+    return G * x
 end
 
 x_init = [1.0, 0.0, 0.0, 0.0]
@@ -66,7 +65,7 @@ NamedTrajectories.plot(traj)
 
 r_term = x -> 100.0 * (x - traj.goal.x)
 
-rs = Function[(x, u) -> [2e-1 * u;] for k = 1:N-1]
+rs = Function[(x, u) -> [5e-1 * u;] for k = 1:N-1]
 
 cs = Function[(x, u) -> [u - traj.bounds.u[1]; traj.bounds.u[2] - u] for k = 1:N]
 
@@ -89,7 +88,7 @@ prob = TrajectoryBundleProblem(bundle;
 
 TrajectoryBundles.solve!(prob;
     max_iter = 200,
-    σ₀ = 0.1,
+    σ₀ = 1.0,
     ρ = 1.0e6,
     slack_tol = 1.0e1,
     silent_solve = true,
@@ -103,6 +102,6 @@ lines(log.(prob.Js[2:end]))
 
 rollout(bundle)[:, end]
 
-bundle.Z̄.x[:, end]
-
 rollout!(bundle)
+
+NamedTrajectories.plot(bundle.Z̄)

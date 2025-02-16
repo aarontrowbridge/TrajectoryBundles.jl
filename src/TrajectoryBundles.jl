@@ -19,6 +19,7 @@ using NamedTrajectories
 using TrajectoryIndexingUtils
 using Convex
 using Clarabel
+import MathOptInterface as MOI
 
 mutable struct TrajectoryBundle
     Z̄::NamedTrajectory
@@ -237,12 +238,22 @@ function step!(bundle::TrajectoryBundle;
 
     Convex.solve!(prob, Clarabel.Optimizer; silent=silent_solve)
 
+    # display(MOI.TerminationStatusCode)
+
+    if prob.status ∈ [
+        MOI.TerminationStatusCode(1), # OPTIMAL
+        MOI.TerminationStatusCode(7), # ALMOST_OPTIMAL
+    ]
+        update!(bundle, α.value)
+    else
+        println("    Subproblem optimization failed with status: $(prob.status)")
+    end
+
     # if prob.status !=
     #     @info "Optimization failed with status: $(prob.status)" prob.status
     #     println("Optimization failed with status: $(prob.status)")
     #     return nothing
     # else
-    update!(bundle, α.value)
 
     return nothing
 end
