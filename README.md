@@ -4,7 +4,20 @@
 
 ## Description
 
-The *[trajectory bundle method](https://kevintracy.info/ktracy_phd_robotics_2024.pdf#page=155)* is a sample-based, gradient-free, parallelizable optimization algorithm for solving trajectory optimization problems. 
+The *[trajectory bundle method](https://kevintracy.info/ktracy_phd_robotics_2024.pdf#page=155)* is a sample-based, gradient-free, parallelizable optimization algorithm for solving trajectory optimization problems of the form
+
+$$
+\begin{align*}
+\underset{x, u}{\text{minimize}} \quad & r_N(x_N) + \sum_{k=0}^{N-1} \|{r_k(x_k, u_k)}\|^2 \\
+\text{subject to} \quad & x_{k+1} = f(x_k, u_k, \Delta t, t_k) \\
+& c_k(x_k, u_k) \geq 0 \\
+& x_0 = x_{\text{init}} \\
+\end{align*}
+$$
+
+where $f(x, u, \Delta t, t)$ is an abuse-of-notaton denoting the solution to an ODE, $\dot{x} = f(x, u, t)$, over the time interval $[t, t + \Delta t]$. 
+
+
 <!-- TrajectoryBundles.jl is a Julia package that provides a high-level interface for defining, solving, and visualizing trajectory optimization problems using the trajectory bundle method. -->
 
 **TrajectoryBundles.jl** uses
