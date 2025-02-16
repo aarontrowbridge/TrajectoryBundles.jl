@@ -52,10 +52,6 @@ x_goal = [0.0, 1.0, 0.0, 0.0]
 # number of time steps
 N = 100
 
-# number of bundle samples at each knot point
-M = 2 * (4 + 2) + 1
-# M = 8
-
 # time step
 Δt = 0.05
 
@@ -91,14 +87,14 @@ traj = NamedTrajectory((
 )
 
 # plot initial trajectory
-NamdTrajectories.plot(traj)
+NamedTrajectories.plot(traj)
 # NamedTrajectories.plot(joinpath(pwd(), "TrajectoryBundles.jl/examples/plots/initial.png"), traj)
 
 # goal loss weight
 Q = 1.0e3
 
 # control regularization weight
-R = 1.0e-2
+R = 5.0e-1
 
 # terminal loss residual
 r_loss = x -> √Q * (x - traj.goal.x)
@@ -126,31 +122,46 @@ c_final = (x, u) -> [
 rs = Function[fill(r_reg, N-1)...]
 cs = Function[c_initial; fill(c_bound, N-2); c_final]
 
-bundle = TrajectoryBundle(traj, M, f, r_term, rs, cs)
+# bundle = TrajectoryBundle(traj, M, f, r_loss, rs, cs)
+
+# define σ scheduler
+σ_scheduler = (args...) -> exponential_decay(args...; γ=0.9)
+# σ_scheduler = cosine_annealing
+# σ_scheduler = linear_scheduler
+
+# number of bundle samples at each knot point
+M = 2 * (traj.dim) + 1
+# M = 8
 
 # construct bundle problem
-prob = TrajectoryBundleProblem(bundle;
-    # σ_scheduler = (args...) -> exponential_decay(args...; γ=0.9)
-    σ_scheduler = cosine_annealing
-    # σ_scheduler = linear_scheduler
+prob = TrajectoryBundleProblem(traj, M, f, r_loss, rs, cs;
+    σ_scheduler = σ_scheduler
 )
 
 # solve bundle problem
 TrajectoryBundles.solve!(prob;
     max_iter = 200,
-    σ₀ = 1.0,
+    σ₀ = 1.0e0,
     ρ = 1.0e6,
-    slack_tol = 1.0e0,
+    slack_tol = 1.0e-1,
     silent_solve = true,
     normalize_states = false,
     manifold_projection = false
 )
 
 # plot bundle solution
-NamedTrajectories.plot(prob.bundle.Z̄)
+NamedTrajectories.plot(prob.best_traj)
+
+eval_objective(prob.best_traj, prob.bundle.r_term, prob.bundle.rs)
 
 # save
-# NamedTrajectories.plot(joinpath(pwd(), "TrajectoryBundles.jl/examples/plots/final.png"), prob.bundle.Z̄)
+NamedTrajectories.plot(joinpath(pwd(), "TrajectoryBundles.jl/examples/plots/final.png"), prob.bundle.Z̄)
 
 # plot loss
-lines(log.(prob.Js[2:end]))
+fig = Figure(size = (800, 600))
+ax = Axis(fig[1, 1], title = "Loss over Iterations", xlabel = "Iteration", ylabel = "Log Loss", yscale = log10)
+lines!(ax, 2:length(prob.Js), log.(prob.Js[2:end]), color = :blue, linewidth = 2)
+fig
+
+# save log loss plot
+save(joinpath(pwd(), "TrajectoryBundles.jl/examples/plots/loss.png"), fig)

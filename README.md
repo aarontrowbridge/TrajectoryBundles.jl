@@ -93,10 +93,6 @@ x_goal = [0.0, 1.0, 0.0, 0.0]
 # number of time steps
 N = 100
 
-# number of bundle samples at each knot point
-M = 2 * (4 + 2) + 1
-# M = 8
-
 # time step
 Δt = 0.05
 
@@ -171,28 +167,31 @@ c_final = (x, u) -> [
 rs = fill(r_reg, N-1)
 cs = Function[c_initial; fill(c_bound, N-2); c_final]
 
-# create trajectory bundle
-bundle = TrajectoryBundle(traj, M, f, r_term, rs, cs)
+# define σ scheduler
+σ_scheduler = (args...) -> exponential_decay(args...; γ=0.9)
+# σ_scheduler = cosine_annealing
+# σ_scheduler = linear_scheduler
 
-# construct bundle problem with specified variance scheduler
-prob = TrajectoryBundleProblem(bundle;
-    # σ_scheduler = (args...) -> exponential_decay(args...; γ=0.9)
-    σ_scheduler = cosine_annealing
-    # σ_scheduler = linear_scheduler
+# number of bundle samples at each knot point
+M = 2 * (traj.dim) + 1
+
+# construct bundle problem
+prob = TrajectoryBundleProblem(traj, M, f, r_loss, rs, cs;
+    σ_scheduler = σ_scheduler
 )
 
 # solve bundle problem
 TrajectoryBundles.solve!(prob;
     max_iter = 200,
-    σ₀ = 1.0,
+    σ₀ = 1.0e0,
     ρ = 1.0e6,
     slack_tol = 1.0e0,
-    silent_solve = true,
-    normalize_states = false,
-    manifold_projection = false
 )
 
-# plot bundle solution
-NamedTrajectories.plot(prob.bundle.Z̄)
+# plot best trajectory 
+NamedTrajectories.plot(prob.best_traj)
 ```
 ![](examples/plots/final.png)
+
+### Objective value
+![](examples/plots/loss.png)
