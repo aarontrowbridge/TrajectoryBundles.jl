@@ -33,7 +33,7 @@ pkg> add https://github.com/aarontrowbridge/TrajectoryBundles.jl.git
 
 See the example script [examples/bilinear_dynamis.jl](./examples/bilinear_dynamics.jl) for a the most up-to-date usage.
 
-For solving a simple bilinear optimal conrol problem, driving a state $x₀ = (1 \ 0 \ 0 \ 0)$ to a goal state $x₁ = (0 \ 1 \ 0 \ 0)$, under the dynamics given by
+For solving a simple bilinear optimal conrol problem, driving a state $x_0 = (1 \ 0 \ 0 \ 0)$ to a goal state $x_1 = (0 \ 1 \ 0 \ 0)$, under the dynamics given by\
 $$
 \dot{x} = G(u(t), t) x
 $$
