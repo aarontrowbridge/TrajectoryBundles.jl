@@ -155,7 +155,7 @@ NamedTrajectories.plot(prob.best_traj)
 eval_objective(prob.best_traj, prob.bundle.r_term, prob.bundle.rs)
 
 # save
-NamedTrajectories.plot(joinpath(pwd(), "TrajectoryBundles.jl/examples/plots/final.png"), prob.bundle.Z̄)
+# NamedTrajectories.plot(joinpath(pwd(), "TrajectoryBundles.jl/examples/plots/final.png"), prob.bundle.Z̄)
 
 # plot loss
 fig = Figure(size = (800, 600))
