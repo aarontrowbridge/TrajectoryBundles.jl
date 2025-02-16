@@ -39,6 +39,8 @@ $$
 $$
 setting up a problem with TrajectoryBundles.jl looks like this:
 
+### System setup 
+
 ```julia
 using LinearAlgebra
 using SparseArrays
@@ -133,6 +135,8 @@ traj = NamedTrajectory((
 NamedTrajectories.plot(traj)
 ```
 ![](examples/plots/initial.png)
+
+### Problem setup
 
 ```julia
 # goal loss weight
