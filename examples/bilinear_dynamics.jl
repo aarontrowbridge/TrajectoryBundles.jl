@@ -1,47 +1,8 @@
-# TrajectoryBundles.jl
-
-[![Build Status](https://github.com/aarontrowbridge/TrajectoryBundles.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/aarontrowbridge/TrajectoryBundles.jl/actions/workflows/CI.yml?query=branch%4Amain)
-
-## Description
-
-The *[trajectory bundle method](https://kevintracy.info/ktracy_phd_robotics_2024.pdf#page=155)* is a sample-based, gradient-free, parallelizable optimization algorithm for solving trajectory optimization problems. 
-<!-- TrajectoryBundles.jl is a Julia package that provides a high-level interface for defining, solving, and visualizing trajectory optimization problems using the trajectory bundle method. -->
-
-**TrajectoryBundles.jl** uses
- - [NamedTrajectories.jl](https://github.com/kestrelquantum/NamedTrajectories.jl) to define, manipulate, and plot trajectories
- - [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl), [DiffEqGPU.jl](https://github.com/SciML/DiffEqGPU.jl), and [CUDA.jl](https://github.com/JuliaGPU/CUDA.jl) to solve the underlying ODEs
- - [Convex.jl](https://github.com/jump-dev/Convex.jl) and [Clarabel.jl](https://github.com/oxfordcontrol/Clarabel.jl) for solving the underlying quadratic program
-
-## Installation
-
-To install TrajectoryBundles.jl, enter package mode in the Julia REPL:
-
-```
-$ julia --project
-```
-
-and run the following command:
-
-```julia
-julia> ]
-pkg> add https://github.com/aarontrowbridge/TrajectoryBundles.jl.git 
-```
-
-## Usage
-
-:construction: Interface is changing rapidly :construction:
-
-See the example script [examples/bilinear_dynamis.jl](./examples/bilinear_dynamics.jl) for a the most up-to-date usage.
-
-For solving a simple bilinear optimal conrol problem, driving a state $x₀ = (1 \ 0 \ 0 \ 0)$ to a goal state $x₁ = (0 \ 1 \ 0 \ 0)$, under the dynamics given by
-$$
-\dot{x} = G(u(t), t) x
-$$
-setting up a problem with TrajectoryBundles.jl looks like this:
-
-```julia
+using Revise
 using LinearAlgebra
 using SparseArrays
+using OrdinaryDiffEq
+using CairoMakie
 using NamedTrajectories
 using TrajectoryBundles
 
@@ -130,11 +91,8 @@ traj = NamedTrajectory((
 )
 
 # plot initial trajectory
-NamedTrajectories.plot(traj)
-```
-![](examples/plots/initial.png)
+NamedTrajectories.plot(joinpath(pwd(), "TrajectoryBundles.jl/examples/plots/initial.png"), traj)
 
-```julia
 # goal loss weight
 Q = 1.0e3
 
@@ -164,13 +122,12 @@ c_final = (x, u) -> [
 ]
 
 # assemble costs and constraints
-rs = fill(r_reg, N-1)
+rs = Function[fill(r_reg, N-1)...]
 cs = Function[c_initial; fill(c_bound, N-2); c_final]
 
-# create trajectory bundle
 bundle = TrajectoryBundle(traj, M, f, r_term, rs, cs)
 
-# construct bundle problem with specified variance scheduler
+# construct bundle problem
 prob = TrajectoryBundleProblem(bundle;
     # σ_scheduler = (args...) -> exponential_decay(args...; γ=0.9)
     σ_scheduler = cosine_annealing
@@ -190,5 +147,9 @@ TrajectoryBundles.solve!(prob;
 
 # plot bundle solution
 NamedTrajectories.plot(prob.bundle.Z̄)
-```
-![](examples/plots/final.png)
+
+# save
+NamedTrajectories.plot(joinpath(pwd(), "TrajectoryBundles.jl/examples/plots/final.png"), prob.bundle.Z̄)
+
+# plot loss
+lines(log.(prob.Js[2:end]))
