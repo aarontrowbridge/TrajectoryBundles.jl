@@ -61,6 +61,7 @@ using LinearAlgebra
 using SparseArrays
 using NamedTrajectories
 using TrajectoryBundles
+using CUDA
 
 # construct dynamical generators: elements of real isomorphism of the Lie algebra 𝔰𝔲(2)
 
@@ -197,6 +198,8 @@ prob = TrajectoryBundleProblem(traj, f, r_loss, rs, cs;
 TrajectoryBundles.solve!(prob;
     max_iter = 200,
     σ₀ = 1.0e0,
+    gpu = true,
+    gpu_backend = CUDA.CUDABackend()
 )
 
 # plot best trajectory 
