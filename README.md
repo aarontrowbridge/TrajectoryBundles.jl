@@ -95,11 +95,11 @@ G_drives = [Gx, Gy]
 # carrier waves
 carrier = t -> [cos(ω * t), sin(ω * t)]
 
-# bilinear dynamics equation: ẋ = (G₀ + ∑(uᵢ * carrier(t) * Gᵢ)) x
-function f(x, u, t)
-    G = ω * Gz + sum((u .* carrier(t)) .* G_drives)
-    return G * x
-end
+# generator for bilinear dynamics: ẋ = G(u(t), t) x
+G(u, t) = ω * Gz + sum((u .* carrier(t)) .* G_drives)
+
+# GPU compatible kernel function
+f! = build_kernel_function((dx, x, u, t) -> mul!(dx, G(u, t), x), 4, 2)
 
 # initial and goal states
 x_init = [1.0, 0.0, 0.0, 0.0]
@@ -154,7 +154,7 @@ NamedTrajectories.plot(traj)
 Q = 1.0e3
 
 # control regularization weight
-R = 1.0e-2
+R = 1.0e-1
 
 # terminal loss residual
 r_loss = x -> √Q * (x - traj.goal.x)
@@ -179,28 +179,24 @@ c_final = (x, u) -> [
 ]
 
 # assemble costs and constraints
-rs = fill(r_reg, N-1)
+rs = Funcion[fill(r_reg, N-1)...]
 cs = Function[c_initial; fill(c_bound, N-2); c_final]
 
 # define σ scheduler
-σ_scheduler = (args...) -> exponential_decay(args...; γ=0.9)
-# σ_scheduler = cosine_annealing
-# σ_scheduler = linear_scheduler
-
 # number of bundle samples at each knot point
 M = 2 * (traj.dim) + 1
 
 # construct bundle problem
-prob = TrajectoryBundleProblem(traj, M, f, r_loss, rs, cs;
-    σ_scheduler = σ_scheduler
+prob = TrajectoryBundleProblem(traj, f, r_loss, rs, cs;
+    # σ_scheduler = (args...) -> exponential_decay(args...; γ=0.9)
+    σ_scheduler = cosine_annealing
+    # σ_scheduler = linear_scheduler
 )
 
 # solve bundle problem
 TrajectoryBundles.solve!(prob;
     max_iter = 200,
     σ₀ = 1.0e0,
-    ρ = 1.0e6,
-    slack_tol = 1.0e0,
 )
 
 # plot best trajectory 

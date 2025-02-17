@@ -5,51 +5,44 @@ export eval_objective
 export step!
 export solve!
 
-export linear_scheduler
-export cosine_annealing
-export exponential_decay
-
 using LinearAlgebra
 using Convex
 using Clarabel
+using OrdinaryDiffEq
+using CUDA
 import MathOptInterface as MOI
 using NamedTrajectories
+using Distributions
 
+using ..Utils
 using ..Bundles
 using ..Rollouts
-
-linear_scheduler(σ₀, σ_min, i, max_iter) = max(σ_min, σ₀ * (1.0 - i/max_iter))
-
-function cosine_annealing(σ₀, σ_min, i, max_iter)
-    return σ_min + 0.5 * (σ₀ - σ_min) * (1 + cos(i * π / max_iter))
-end
-
-exponential_decay(σ₀, σ_min, i, max_iter; γ=0.9, T=5) = σ₀ * γ^(i * max_iter / T)
 
 mutable struct TrajectoryBundleProblem
     bundle::TrajectoryBundle
     σ_scheduler::Function
     Js::Vector{Float64}
+    Cs::Vector{Float64}
     best_traj::NamedTrajectory
 
     function TrajectoryBundleProblem(
         bundle::TrajectoryBundle;
         σ_scheduler::Function = linear_scheduler
     )
-        new(bundle, σ_scheduler, Float64[], copy(bundle.Z̄))
+        new(bundle, σ_scheduler, Float64[], Float64[], copy(bundle.Z̄))
     end
 
     function TrajectoryBundleProblem(
         Z_init::NamedTrajectory,
-        f::Function,
+        f!::Function,
         r_loss::Function,
         rs::Vector{Function},
         cs::Vector{Function};
         M::Int = 2 * Z_init.dim + 1,
         kwargs...
     )
-        bundle = TrajectoryBundle(Z_init, M, f, r_loss, rs, cs)
-        TrajectoryBundleProblem(bundle; kwargs...)
+        bundle = TrajectoryBundle(Z_init, M, f!, r_loss, rs, cs)
+        return TrajectoryBundleProblem(bundle; kwargs...)
     end
 end
 
@@ -97,35 +90,46 @@ function NamedTrajectories.update!(
 end
 
 function step!(prob::TrajectoryBundleProblem;
-    σ = 0.1,
     ρ = 1.0e5,
     silent_solve = false,
+    dist = Normal(0.0, 1.0),
     slacks = true,
-    normalize_states = true
+    normalize_states = false,
+    integrator = Tsit5(),
+    gpu = false,
+    gpu_backend = CUDA.CUDABackend(),
 )
-    evolve!(prob.bundle; σ = σ, normalize_states = normalize_states)
+    evolve!(prob.bundle;
+        dist = dist,
+        normalize_states = normalize_states,
+        integrator = integrator,
+        gpu = gpu,
+        gpu_backend = gpu_backend
+    )
 
     α = Variable(prob.bundle.M, prob.bundle.N, Positive())
 
+    base_obj = sum(sumsquares(prob.bundle.Wrs[k] * α[:, k]) for k = 1:prob.bundle.N)
+
     if slacks
         s = Variable(prob.bundle.Z̄.dims.x, prob.bundle.N - 1)
-        ws = [Variable(size(Wcₖ, 1)) for Wcₖ in prob.bundle.Wcs]
+        ws = [Variable(size(Wcₖ, 1)) for Wcₖ ∈ prob.bundle.Wcs]
+        slack_obj = ρ * (norm(s, 1) + sum(norm(w, 1) for w ∈ ws))
+        obj = base_obj + slack_obj
+    else
+        obj = base_obj
     end
-
-    obj = sum(sumsquares(prob.bundle.Wrs[k] * α[:, k]) for k = 1:prob.bundle.N-1) +
-        sumsquares(prob.bundle.Wrs[prob.bundle.N] * α[:, prob.bundle.N]) +
-        (slacks ? ρ * (
-            norm(s, 1) +
-            sum(norm(w, 1) for w ∈ ws)
-        ) : 0.0)
 
     constraints = Constraint[sum(α[:, k]) == 1 for k = 1:prob.bundle.N]
 
     for k = 1:prob.bundle.N-1
-        push!(constraints,
-            prob.bundle.Wxs[k + 1] * α[:, k + 1] - prob.bundle.Wfs[k] * α[:, k] ==
-                (slacks ? s[:, k] : 0.0)
-        )
+        fₖ_con = prob.bundle.Wxs[k + 1] * α[:, k + 1] ==
+            prob.bundle.Wfs[k] * α[:, k] + (slacks ? s[:, k] : 0.0)
+
+        push!(constraints, fₖ_con)
+    end
+
+    for k = 1:prob.bundle.N
         push!(constraints,
             prob.bundle.Wcs[k] * α[:, k] >= (slacks ? ws[k] : 0.0)
         )
@@ -135,74 +139,92 @@ function step!(prob::TrajectoryBundleProblem;
 
     Convex.solve!(subprob, Clarabel.Optimizer; silent=silent_solve)
 
-    # display(MOI.TerminationStatusCode)
-
     if subprob.status ∈ [
         MOI.TerminationStatusCode(1), # OPTIMAL
         MOI.TerminationStatusCode(7), # ALMOST_OPTIMAL
     ]
         update!(prob.bundle, α.value)
+
+        push!(prob.Js, evaluate(base_obj))
+
+        if slacks
+            push!(prob.Cs, evaluate(slack_obj))
+        else
+            push!(prob.Cs, 0.0)
+        end
+
+        return :solved
     else
-        println("    Subproblem optimization failed with status: $(subprob.status)")
+        println("    subproblem solve failed with status: $(subprob.status)")
+        return :failed
     end
-
-    # if prob.status !=
-    #     @info "Optimization failed with status: $(prob.status)" prob.status
-    #     println("Optimization failed with status: $(prob.status)")
-    #     return nothing
-    # else
-
-    return nothing
 end
 
 function solve!(prob::TrajectoryBundleProblem;
     max_iter = 100,
     σ₀ = 1.0,
     σ_min = 0.0,
-    ρ = 1.0e6,
+    ρ = 1.0e5,
     slack_tol = 1.0e-1,
     normalize_states = false,
     feasibility_projection = false,
     silent_solve = true,
+    integrator = Tsit5(),
+    gpu = false,
+    gpu_backend = CUDA.CUDABackend()
 )
-    J⁰ = eval_objective(prob.bundle)
-    prob.Js = Float64[J⁰]
+    println("-------------------------------------------------------------")
+    println("| iteration |    J value    |    C value    |    σ value    |")
+    println("-------------------------------------------------------------")
 
-    println("Iteration 0: J = $J⁰, σ = $σ₀")
+    J⁰ = eval_objective(prob.bundle)
+    C⁰ = Inf
+
+    push!(prob.Js, J⁰)
+    push!(prob.Cs, C⁰)
+
+    println("| $(rpad(0, 9)) | $(rpad(round(J⁰, digits=6), 12)) | $(rpad(round(C⁰, digits=6), 12)) | $(rpad(round(σ₀, digits=6), 12)) |")
+
+    status = nothing
 
     for i = 1:max_iter
 
         σ = prob.σ_scheduler(σ₀, σ_min, i, max_iter)
 
-        step!(prob;
-            σ = σ,
+        status = step!(prob;
             ρ = ρ,
+            dist = Normal(0.0, σ),
             silent_solve = silent_solve,
-            slacks = i > 1 ? prob.Js[end] > slack_tol : true,
-            normalize_states = normalize_states
+            slacks = prob.Cs[end] > slack_tol || status == :failed,
+            normalize_states = normalize_states,
+            integrator = integrator,
+            gpu = gpu,
+            gpu_backend = gpu_backend
         )
+
+        if status == :failed
+            continue
+        end
 
         if feasibility_projection
             rollout!(prob.bundle)
         end
 
-        Jⁱ = eval_objective(prob.bundle)
+        Jⁱ = prob.Js[end]
+        Cⁱ = prob.Cs[end]
 
-        if Jⁱ < minimum(prob.Js)
+        if Cⁱ < slack_tol && Jⁱ < minimum(prob.Js)
             prob.best_traj = copy(prob.bundle.Z̄)
         end
 
-        push!(prob.Js, Jⁱ)
-
-        println("Iteration $i: J = $Jⁱ, σ = $σ")
+        println("| $(rpad(i, 9)) | $(rpad(round(Jⁱ, digits=6), 12)) | $(rpad(round(Cⁱ, digits=6), 12)) | $(rpad(round(σ, digits=6), 12)) |")
     end
 
-    prob.bundle.Z̄ = copy(prob.best_traj)
+    println("---------------------------------------------")
+
+    # prob.bundle.Z̄ = copy(prob.best_traj)
 
     return nothing
 end
-
-
-
 
 end

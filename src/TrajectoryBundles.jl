@@ -2,6 +2,9 @@ module TrajectoryBundles
 
 using Reexport
 
+include("utils.jl")
+@reexport using .Utils
+
 include("bundles.jl")
 @reexport using .Bundles
 

@@ -10,26 +10,26 @@ using ..Bundles
 function rollout(
     x_init::AbstractVector,
     u_traj::AbstractMatrix,
-    f::Function,
+    f!::Function,
     Δt::Float64,
     N::Int;
-    alg = Tsit5(),
+    integrator = Tsit5(),
     return_full_solution = false
 )
-    f_full = (x, us, t) -> begin
+    f_full! = (dx, x, us, t) -> begin
         k = Int(t ÷ Δt) + 1
         uₖ = us[:, k]
-        return f(x, uₖ, t)
+        return f!(dx, x, uₖ, t)
     end
 
     prob_rollout = ODEProblem(
-        f_full,
+        f_full!,
         x_init,
         (0.0, Δt * (N - 1)),
         u_traj
     )
 
-    sol = solve(prob_rollout, alg, saveat = Δt)
+    sol = solve(prob_rollout, integrator, saveat = Δt)
 
     if return_full_solution
         return sol
@@ -42,7 +42,7 @@ function rollout(bundle::TrajectoryBundle; kwargs...)
     return rollout(
         bundle.Z̄.initial.x,
         bundle.Z̄.u,
-        bundle.f,
+        bundle.f!,
         bundle.Z̄.timestep,
         bundle.N;
         kwargs...
