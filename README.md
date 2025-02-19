@@ -5,7 +5,7 @@
 <!-- ## Description -->
 
 <!-- The *[trajectory bundle method](https://kevintracy.info/ktracy_phd_robotics_2024.pdf#page=155)* is a sample-based, gradient-free, parallelizable optimization algorithm for solving trajectory optimization problems of the form -->
-Use **GPU**s to solve problems of the form
+Use **GPU**s to solve trajectory optimization problems of the form
 
 $$
 \begin{align*}
