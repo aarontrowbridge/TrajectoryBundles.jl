@@ -16,12 +16,12 @@ $$
 \end{align*}
 $$
 
-where $f(x, u, \Delta t, t)$ is an abuse-of-notaton denoting the solution to an ODE, $\dot{x} = f(x, u, t)$, over the time interval $[t, t + \Delta t]$. 
+where each $r_k(x, u)$ is a user-defined residual function and $f(x, u, \Delta t, t)$ is an abuse-of-notaton denoting the solution to an ODE of the form $\dot{x} = f(x, u, t)$ over the time interval $[t, t + \Delta t]$. 
 
 
 <!-- TrajectoryBundles.jl is a Julia package that provides a high-level interface for defining, solving, and visualizing trajectory optimization problems using the trajectory bundle method. -->
 
-**TrajectoryBundles.jl** uses
+**TrajectoryBundles.jl** utilizes
  - [NamedTrajectories.jl](https://github.com/kestrelquantum/NamedTrajectories.jl) to define, manipulate, and plot trajectories
  - [OrdinaryDiffEq.jl](https://github.com/SciML/OrdinaryDiffEq.jl), [DiffEqGPU.jl](https://github.com/SciML/DiffEqGPU.jl), and [CUDA.jl](https://github.com/JuliaGPU/CUDA.jl) to solve the underlying ODEs
  - [Convex.jl](https://github.com/jump-dev/Convex.jl) and [Clarabel.jl](https://github.com/oxfordcontrol/Clarabel.jl) for solving the underlying quadratic program
