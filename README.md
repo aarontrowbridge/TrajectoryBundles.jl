@@ -10,7 +10,7 @@ Use **GPU**s to solve trajectory optimization problems of the form
 $$
 \begin{align*}
 \underset{x, u}{\text{minimize}} \quad & \left\lVert r_N(x_N)\right\rVert^2 + \sum_{k=1}^{N-1} \left\lVert r_k(x_k, u_k)\right\rVert^2 \\
-\text{subject to} \quad & f(x_{k+1}, x_k, u_k, \Delta t, t_k) = 0\\
+\text{subject to} \quad & x_{k+1} = f(x_k, u_k, \Delta t, t_k)\\
 & c_k(x_k, u_k) \geq 0 \\
 & x_1 = x_{\text{init}} \\
 \end{align*}
