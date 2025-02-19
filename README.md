@@ -28,17 +28,10 @@ where each $r_k(x, u)$ is a user-defined residual function and $f(x, u, \Delta t
 
 ## Installation
 
-To install TrajectoryBundles.jl, enter package mode in the Julia REPL:
-
-```
-$ julia --project
-```
-
-and run the following command:
+TrajectoryBundles.jl is registered so simply enter package mode, via `]`, in the Julia REPL and run the following command:
 
 ```julia
-julia> ]
-pkg> add https://github.com/aarontrowbridge/TrajectoryBundles.jl.git 
+pkg> add TrajectoryBundles
 ```
 
 ## Usage
