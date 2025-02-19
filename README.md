@@ -2,9 +2,10 @@
 
 [![Build Status](https://github.com/aarontrowbridge/TrajectoryBundles.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/aarontrowbridge/TrajectoryBundles.jl/actions/workflows/CI.yml?query=branch%4Amain)
 
-## Description
+<!-- ## Description -->
 
-The *[trajectory bundle method](https://kevintracy.info/ktracy_phd_robotics_2024.pdf#page=155)* is a sample-based, gradient-free, parallelizable optimization algorithm for solving trajectory optimization problems of the form
+<!-- The *[trajectory bundle method](https://kevintracy.info/ktracy_phd_robotics_2024.pdf#page=155)* is a sample-based, gradient-free, parallelizable optimization algorithm for solving trajectory optimization problems of the form -->
+Use **GPU**s to solve problems of the form
 
 $$
 \begin{align*}
@@ -44,7 +45,7 @@ pkg> add https://github.com/aarontrowbridge/TrajectoryBundles.jl.git
 
 :construction: Interface is changing rapidly :construction:
 
-See the example script [examples/bilinear_dynamis.jl](./examples/bilinear_dynamics.jl) for a the most up-to-date usage.
+See the example script [examples/quaternion_control.jl](./examples/quaternion_control.jl) for a the most up-to-date usage.
 
 For solving a simple bilinear optimal conrol problem, driving a state $x_0 = (1 \ 0 \ 0 \ 0)$ to a goal state $x_1 = (0 \ 1 \ 0 \ 0)$, under the dynamics given by
 
@@ -63,7 +64,7 @@ using NamedTrajectories
 using TrajectoryBundles
 using CUDA
 
-# construct dynamical generators: elements of real isomorphism of the Lie algebra 𝔰𝔲(2)
+# quaternion rotation generators 
 
 Gx = sparse([
      0  0 0 1;
@@ -99,8 +100,10 @@ carrier = t -> [cos(ω * t), sin(ω * t)]
 # generator for bilinear dynamics: ẋ = G(u(t), t) x
 G(u, t) = ω * Gz + sum((u .* carrier(t)) .* G_drives)
 
+f!(dx, x, u, t) = mul!(dx, G(u, t), x)
+
 # GPU compatible kernel function
-f! = build_kernel_function((dx, x, u, t) -> mul!(dx, G(u, t), x), 4, 2)
+f! = build_kernel_function(f!, 4, 2)
 
 # initial and goal states
 x_init = [1.0, 0.0, 0.0, 0.0]
