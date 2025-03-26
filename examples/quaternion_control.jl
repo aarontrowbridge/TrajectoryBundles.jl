@@ -18,7 +18,7 @@ begin
         0  0 0 1;
         0  0 1 0;
         0 -1 0 0;
-        -1  0 0 0
+        -1 0 0 0
     ])
 
     Gy = sparse(Float64[
@@ -29,10 +29,10 @@ begin
     ])
 
     Gz = sparse(Float64[
-        0 0 1  0;
-        0 0 0 -1;
+        0  0 1  0;
+        0  0 0 -1;
         -1 0 0  0;
-        0 1 0  0
+        0  1 0  0
     ])
 
 
@@ -147,7 +147,8 @@ prob = TrajectoryBundleProblem(traj, f!, r_loss, rs, cs;
 
 TrajectoryBundles.solve!(prob;
     max_iter = 200,
-    σ₀ = 1.0e-1,
+    σ₀ = 2.0e-1,
+    c_σ = 1 / sqrt(traj.dim * traj.T),
     σ_min = 1e-2,
     ρ = 1.0e5,
     slack_tol = 1.0e-1,
@@ -158,7 +159,7 @@ TrajectoryBundles.solve!(prob;
 )
 
 # plot bundle solution
-NamedTrajectories.plot(prob.bundle.Z̄)
+plot(prob.bundle.Z̄)
 
 eval_objective(prob.bundle)
 
@@ -173,10 +174,18 @@ NamedTrajectories.plot(joinpath(pwd(), "TrajectoryBundles.jl/examples/plots/fina
 
 begin
     fig = Figure(size = (800, 600))
-    ax = Axis(fig[1, 1], title = "Loss over Iterations", xlabel = "Iteration", ylabel = "Log Loss", yscale = log10)
-    lines!(ax, 2:length(prob.Js), log.(prob.Js[2:end]), color = :blue, linewidth = 2)
+    ax1 = Axis(fig[1, 1], title = "Loss over Iterations", xlabel = "Iteration", ylabel = "Log Loss")
+
+    lines!(ax1, 2:length(prob.Js), prob.Js[2:end], color = :blue, linewidth = 2)
+
+    # ax2 = Axis(fig[2, 1], title = "Constraint violation over Iterations", xlabel = "Iteration", ylabel = "Log Loss")
+
+    # lines!(ax2, 2:length(prob.Cs), prob.Cs[2:end], color = :red, linewidth = 2)
     fig
 end
 
+
+
+prob.Cs 
 # save log loss plot
 # save(joinpath(pwd(), "TrajectoryBundles.jl/examples/plots/loss.png"), fig)

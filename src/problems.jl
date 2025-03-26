@@ -142,6 +142,7 @@ function step!(prob::TrajectoryBundleProblem;
     if subprob.status ∈ [
         MOI.TerminationStatusCode(1), # OPTIMAL
         MOI.TerminationStatusCode(7), # ALMOST_OPTIMAL
+        # MOI.TerminationStatusCode(8), # ALMOST_INFEASIBLE 
     ]
         update!(prob.bundle, α.value)
 
@@ -165,6 +166,8 @@ function solve!(prob::TrajectoryBundleProblem;
     σ₀ = 1.0,
     σ_min = 0.0,
     ρ = 1.0e5,
+    c_σ = 0.9,
+    d_σ = 1.0,
     slack_tol = 1.0e-1,
     normalize_states = false,
     feasibility_projection = false,
@@ -187,9 +190,15 @@ function solve!(prob::TrajectoryBundleProblem;
 
     status = nothing
 
+    σ = σ₀
+
+    n_Z = length(prob.bundle.Z̄.datavec)
+    p_σ = zeros(n_Z)
+
     for i = 1:max_iter
 
-        σ = prob.σ_scheduler(σ₀, σ_min, i, max_iter)
+        # σ = prob.σ_scheduler(σ₀, σ_min, i, max_iter)
+        mᵢ = prob.bundle.Z̄.datavec
 
         status = step!(prob;
             ρ = ρ,
@@ -209,6 +218,13 @@ function solve!(prob::TrajectoryBundleProblem;
         if feasibility_projection
             rollout!(prob.bundle)
         end
+
+        mᵢ₊₁ = prob.bundle.Z̄.datavec
+
+        p_σ = (1 - c_σ) * p_σ + sqrt(c_σ * (2 - c_σ)) * (mᵢ₊₁ - mᵢ) / σ
+
+
+        σ *= exp(c_σ / d_σ * (norm(p_σ)^2 / n_Z - 1))
 
         Jⁱ = prob.Js[end]
         Cⁱ = prob.Cs[end]
